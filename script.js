@@ -1,4 +1,3 @@
-// 📊 Data Historis
 const dataHistoris = {
     tahun: [2018, 2019, 2020, 2021, 2022],
     pendaftar: [120, 250, 370, 100, 120],
@@ -41,6 +40,8 @@ function tambahDataKeChart(chart, tahun, jumlahPendaftar, datasetIndex) {
 
 // 🎯 Fungsi Refresh Data pada Chart
 const onRefresh = (chart) => {
+    console.log(chart.data.datasets);
+
     const datasetHistoris = chart.data.datasets[0].data;
     const datasetPrediksi = chart.data.datasets[1].data;
 
@@ -65,6 +66,7 @@ const onRefresh = (chart) => {
             ? datasetPrediksi.at(-1).x
             : lastHistoricalYear;
 
+        // Loop untuk menambahkan data prediksi secara bertahap
         if (lastPredictedYear < 2027) {
             lastPredictedYear++;
             const prediksi = prediksiPendaftar.find(p => p.tahun === lastPredictedYear);
@@ -76,7 +78,27 @@ const onRefresh = (chart) => {
 
     chart.update();
 };
+function refreshChart() {
+    // Hitung ulang regresi dan prediksi
+    ({ m, b } = hitungRegresi(dataHistoris));
+    prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
 
+    // Reset data di chart
+    chart.data.datasets[0].data = dataHistoris.tahun.map((tahun, i) => ({
+        x: tahun,
+        y: dataHistoris.pendaftar[i],
+    }));
+    chart.data.datasets[1].data = prediksiPendaftar.map(prediksi => ({
+        x: prediksi.tahun,
+        y: prediksi.jumlahPendaftar,
+    }));
+
+    chart.update();
+
+    // Update tabel dan rumus
+    updateTabelPerhitungan();
+    updateRumusRegresi(m, b);
+}
 // 📊 Inisialisasi Chart
 const ctx = document.getElementById('chart').getContext('2d');
 const chart = new Chart(ctx, {
@@ -87,13 +109,17 @@ const chart = new Chart(ctx, {
                 label: '📊 Data Historis',
                 borderColor: '#4CAF50',
                 backgroundColor: 'rgba(76, 175, 80, 0.2)',
-                data: [],
+                data: [], // Data historis diisi melalui refreshChart()
+                pointRadius: 5, // Ukuran titik data
+                pointHoverRadius: 7, // Ukuran titik saat di-hover
             },
             {
                 label: '📈 Data Prediksi',
                 borderColor: '#FF5722',
                 backgroundColor: 'rgba(255, 87, 34, 0.2)',
-                data: [],
+                data: [], // Data prediksi diisi melalui refreshChart()
+                pointRadius: 5,
+                pointHoverRadius: 7,
             },
         ],
     },
@@ -125,12 +151,41 @@ const chart = new Chart(ctx, {
                 display: true,
                 position: 'top',
             },
+
+            tooltip: {
+                enabled: true,
+                mode: 'index', // Fokus pada semua titik dengan x yang sama
+                intersect: false, // Aktifkan tooltip meskipun tidak tepat di titik
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#ffffff',
+                bodyColor: '#ffffff',
+                footerColor: '#ffffff',
+                callbacks: {
+                    title: function (tooltipItems) {
+                        if (tooltipItems.length > 0) {
+                            const item = tooltipItems[0];
+                            return `📅 Tahun: ${item.raw.x}`;
+                        }
+                        return 'Tahun tidak tersedia';
+                    },
+                    label: function (tooltipItem) {
+                        return `👥 Pendaftar: ${tooltipItem.raw.y}`;
+                    },
+                    footer: function (tooltipItems) {
+                        return tooltipItems[0]?.dataset?.label || 'Data tidak tersedia';
+                    }
+                }
+            }
         },
+
         interaction: {
-            intersect: false,
+            mode: 'index', // Fokus pada titik data terdekat
+            intersect: false, // Aktifkan tooltip meskipun tidak tepat pada titik
         },
+        responsive: true,
     },
 });
+
 
 // 🎯 Hitung Regresi dan Prediksi Awal
 let { m, b } = hitungRegresi(dataHistoris);
@@ -155,13 +210,7 @@ document.getElementById('tambahData').addEventListener('click', () => {
             dataHistoris.tahun = combined.map(d => d.tahun);
             dataHistoris.pendaftar = combined.map(d => d.pendaftar);
 
-            tambahDataKeChart(chart, tahun, pendaftar, 0);
-
-            // Hitung ulang regresi dan prediksi
-            ({ m, b } = hitungRegresi(dataHistoris));
-            prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
-
-            chart.update();
+            refreshChart();
         } else {
             alert('Tahun sudah ada di data historis!');
         }
@@ -175,47 +224,64 @@ let refreshInterval = setInterval(() => {
     onRefresh(chart);
 }, 2000);
 function updateTabelPerhitungan() {
-    const tabelBody = document.getElementById('tabelPerhitungan');
-    tabelBody.innerHTML = ''; // Kosongkan tabel
+    const tabel = document.getElementById('tabelPerhitungan');
+    tabel.innerHTML = `
+        <tr>
+            <th class="px-4 py-2 border border-gray-300">Tahun</th>
+            <th class="px-4 py-2 border border-gray-300">Jumlah Pendaftar</th>
+            <th class="px-4 py-2 border border-gray-300">x * y</th>
+            <th class="px-4 py-2 border border-gray-300">x²</th>
+        </tr>
+    `;
 
-    // Tambahkan data historis
-    dataHistoris.tahun.forEach((tahun, index) => {
-        tabelBody.innerHTML += `
+    let totalX = 0, totalY = 0, totalXY = 0, totalX2 = 0;
+    dataHistoris.tahun.forEach((tahun, i) => {
+        const x = tahun;
+        const y = dataHistoris.pendaftar[i];
+        const xy = x * y;
+        const x2 = x * x;
+
+        totalX += x;
+        totalY += y;
+        totalXY += xy;
+        totalX2 += x2;
+
+        tabel.innerHTML += `
             <tr>
-                <td class="border border-gray-300 px-4 py-2">${tahun}</td>
-                <td class="border border-gray-300 px-4 py-2">${dataHistoris.pendaftar[index]}</td>
-                <td class="border border-gray-300 px-4 py-2">-</td>
+                <td>${x}</td>
+                <td>${y}</td>
+                <td>${xy}</td>
+                <td>${x2}</td>
             </tr>
         `;
     });
 
-    // Tambahkan data prediksi
-    prediksiPendaftar.forEach(item => {
-        tabelBody.innerHTML += `
-            <tr>
-                <td class="border border-gray-300 px-4 py-2">${item.tahun}</td>
-                <td class="border border-gray-300 px-4 py-2">-</td>
-                <td class="border border-gray-300 px-4 py-2">${item.jumlahPendaftar}</td>
-            </tr>
-        `;
-    });
+    // Tampilkan total perhitungan di bawah tabel
+    tabel.innerHTML += `
+        <tr>
+            <th>Total</th>
+            <th>${totalY}</th>
+            <th>${totalXY}</th>
+            <th>${totalX2}</th>
+        </tr>
+    `;
 }
+
 // Hitung ulang regresi dan prediksi
 ({ m, b } = hitungRegresi(dataHistoris));
 prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
 
 chart.update();
+
 updateTabelPerhitungan(); // Perbarui tabel
 updateRumusRegresi(m, b); // Perbarui rumus regresi
 
-// 📐 Update Rumus Regresi
 function updateRumusRegresi(m, b) {
-    document.getElementById('rumusM').innerText = `m = ${m.toFixed(4)}`;
-    document.getElementById('rumusB').innerText = `b = ${b.toFixed(4)}`;
-    document.getElementById('persamaanRegresi').innerText = `y = ${m.toFixed(4)}x + ${b.toFixed(4)}`;
+    document.getElementById('rumusM').innerText = `m (Gradien) = ${m.toFixed(0)}`;
+    document.getElementById('rumusB').innerText = `b (Intersep) = ${b.toFixed(0)}`;
+    document.getElementById('persamaanRegresi').innerText = `Persamaan Regresi: y = ${m.toFixed(0)}x + ${b.toFixed(0)}`;
 }
 
-// 🎯 Panggil Update Tabel Setelah Data Diubah
 document.getElementById('tambahData').addEventListener('click', () => {
     const tahun = parseInt(document.getElementById('tahun').value);
     const pendaftar = parseInt(document.getElementById('pendaftar').value);
@@ -234,14 +300,34 @@ document.getElementById('tambahData').addEventListener('click', () => {
             dataHistoris.tahun = combined.map(d => d.tahun);
             dataHistoris.pendaftar = combined.map(d => d.pendaftar);
 
+            // Tambahkan data ke grafik historis
             tambahDataKeChart(chart, tahun, pendaftar, 0);
 
             // Hitung ulang regresi dan prediksi
             ({ m, b } = hitungRegresi(dataHistoris));
-            prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
+
+            // Tentukan tahun awal prediksi
+            const tahunTerakhirHistoris = Math.max(...dataHistoris.tahun);
+            const tahunAwalPrediksi = tahunTerakhirHistoris + 1;
+
+            // Jika tahun yang ditambahkan di bawah tahun awal prediksi, jangan geser prediksi
+            if (tahun <= tahunTerakhirHistoris) {
+                prediksiPendaftar = hitungPrediksi(m, b, tahunAwalPrediksi, tahunAwalPrediksi + 4);
+            }
+            // Jika tahun yang ditambahkan di atas tahun terakhir prediksi, geser prediksi
+            else {
+                prediksiPendaftar = hitungPrediksi(m, b, tahunAwalPrediksi, tahunAwalPrediksi + 4);
+            }
+
+            // Perbarui dataset prediksi di chart
+            chart.data.datasets[1].data = [];
+            prediksiPendaftar.forEach(prediksi => {
+                tambahDataKeChart(chart, prediksi.tahun, prediksi.jumlahPendaftar, 1);
+            });
 
             chart.update();
             updateTabelPerhitungan(); // Perbarui tabel
+            updateRumusRegresi(m, b); // Perbarui rumus regresi
         } else {
             alert('Tahun sudah ada di data historis!');
         }
@@ -250,5 +336,4 @@ document.getElementById('tambahData').addEventListener('click', () => {
     }
 });
 
-// Panggil tabel pertama kali saat halaman dimuat
 updateTabelPerhitungan();
