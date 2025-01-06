@@ -237,9 +237,14 @@ updateTabelPerhitungan(); // Perbarui tabel
 updateRumusRegresi(m, b); // Perbarui rumus regresi
 
 function updateRumusRegresi(m, b) {
+    const tahunTerakhir = Math.max(...dataHistoris.tahun);
+    const tahunPrediksi = tahunTerakhir + 1;
+    const jumlahPendaftarPrediksi = Math.round(m * tahunPrediksi + b);
+    document.getElementById('thn').innerText = `${tahunPrediksi}`;
     document.getElementById('rumusM').innerText = `m (Gradien) = ${m.toFixed(0)}`;
     document.getElementById('rumusB').innerText = `b (Intersep) = ${b.toFixed(0)}`;
     document.getElementById('persamaanRegresi').innerText = `Persamaan Regresi: y = ${m.toFixed(0)}x + ${b.toFixed(0)}`;
+    document.getElementById('tahunPrediksi').innerText = `${jumlahPendaftarPrediksi} pendaftar`;
 }
 
 document.getElementById('tambahData').addEventListener('click', () => {
