@@ -39,34 +39,21 @@ function tambahDataKeChart(chart, tahun, jumlahPendaftar, datasetIndex) {
 }
 
 // 🎯 Fungsi Refresh Data pada Chart
+// 🎯 Fungsi Refresh Data pada Interval
 const onRefresh = (chart) => {
-    console.log(chart.data.datasets);
-
     const datasetHistoris = chart.data.datasets[0].data;
     const datasetPrediksi = chart.data.datasets[1].data;
 
-    // Tahun terakhir dari dataset historis
-    let lastHistoricalYear = datasetHistoris.length > 0
-        ? datasetHistoris.at(-1).x
-        : 2017;
+    let lastYear = datasetHistoris.length > 0 ? datasetHistoris.at(-1).x : 2017;
 
-    // Tambahkan data historis jika masih ada di dataHistoris
-    const nextHistoricalIndex = dataHistoris.tahun.indexOf(lastHistoricalYear + 1);
-    if (nextHistoricalIndex !== -1) {
-        tambahDataKeChart(
-            chart,
-            dataHistoris.tahun[nextHistoricalIndex],
-            dataHistoris.pendaftar[nextHistoricalIndex],
-            0
-        );
-    }
-    // Jika historis selesai, tambahkan prediksi
-    else {
+    const nextIndex = dataHistoris.tahun.indexOf(lastYear + 1);
+    if (nextIndex !== -1) {
+        tambahDataKeChart(chart, dataHistoris.tahun[nextIndex], dataHistoris.pendaftar[nextIndex], 0);
+    } else {
         let lastPredictedYear = datasetPrediksi.length > 0
             ? datasetPrediksi.at(-1).x
-            : lastHistoricalYear;
+            : lastYear;
 
-        // Loop untuk menambahkan data prediksi secara bertahap
         if (lastPredictedYear < 2027) {
             lastPredictedYear++;
             const prediksi = prediksiPendaftar.find(p => p.tahun === lastPredictedYear);
@@ -191,33 +178,6 @@ const chart = new Chart(ctx, {
 let { m, b } = hitungRegresi(dataHistoris);
 let prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
 
-// ➕ Event Tambah Data Manual
-document.getElementById('tambahData').addEventListener('click', () => {
-    const tahun = parseInt(document.getElementById('tahun').value);
-    const pendaftar = parseInt(document.getElementById('pendaftar').value);
-
-    if (!isNaN(tahun) && !isNaN(pendaftar)) {
-        if (!dataHistoris.tahun.includes(tahun)) {
-            dataHistoris.tahun.push(tahun);
-            dataHistoris.pendaftar.push(pendaftar);
-
-            // Urutkan data historis
-            const combined = dataHistoris.tahun.map((tahun, i) => ({
-                tahun,
-                pendaftar: dataHistoris.pendaftar[i],
-            })).sort((a, b) => a.tahun - b.tahun);
-
-            dataHistoris.tahun = combined.map(d => d.tahun);
-            dataHistoris.pendaftar = combined.map(d => d.pendaftar);
-
-            refreshChart();
-        } else {
-            alert('Tahun sudah ada di data historis!');
-        }
-    } else {
-        alert('Masukkan tahun dan jumlah pendaftar dengan benar!');
-    }
-});
 
 // ⏲️ Interval untuk Refresh Data
 let refreshInterval = setInterval(() => {
