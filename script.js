@@ -38,7 +38,6 @@ function tambahDataKeChart(chart, tahun, jumlahPendaftar, datasetIndex) {
     chart.data.datasets[datasetIndex].data.sort((a, b) => a.x - b.x);
 }
 
-// 🎯 Fungsi Refresh Data pada Chart
 // 🎯 Fungsi Refresh Data pada Interval
 const onRefresh = (chart) => {
     const datasetHistoris = chart.data.datasets[0].data;
@@ -83,6 +82,8 @@ function refreshChart() {
     chart.update();
 
     // Update tabel dan rumus
+    updateTabelDatasetHistoris();
+    updateTabelHasilPrediksi();
     updateTabelPerhitungan();
     updateRumusRegresi(m, b);
 }
@@ -177,7 +178,35 @@ const chart = new Chart(ctx, {
 // 🎯 Hitung Regresi dan Prediksi Awal
 let { m, b } = hitungRegresi(dataHistoris);
 let prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
+// 📝 Fungsi Update Tabel Dataset Historis
+function updateTabelDatasetHistoris() {
+    const tabelHistoris = document.getElementById('tabelDatasetHistoris');
+    tabelHistoris.innerHTML = ''; // Kosongkan tabel sebelum diperbarui
 
+    dataHistoris.tahun.forEach((tahun, index) => {
+        tabelHistoris.innerHTML += `
+            <tr>
+                <td class="px-4 py-2 border">${tahun}</td>
+                <td class="px-4 py-2 border">${dataHistoris.pendaftar[index]}</td>
+            </tr>
+        `;
+    });
+}
+
+// 📝 Fungsi Update Tabel Hasil Prediksi
+function updateTabelHasilPrediksi() {
+    const tabelPrediksi = document.getElementById('tabelHasilPrediksi');
+    tabelPrediksi.innerHTML = ''; // Kosongkan tabel sebelum diperbarui
+
+    prediksiPendaftar.forEach((prediksi) => {
+        tabelPrediksi.innerHTML += `
+            <tr>
+                <td class="px-4 py-2 border">${prediksi.tahun}</td>
+                <td class="px-4 py-2 border">${prediksi.jumlahPendaftar}</td>
+            </tr>
+        `;
+    });
+}
 
 // ⏲️ Interval untuk Refresh Data
 let refreshInterval = setInterval(() => {
@@ -232,7 +261,8 @@ function updateTabelPerhitungan() {
 prediksiPendaftar = hitungPrediksi(m, b, Math.max(...dataHistoris.tahun) + 1, 2027);
 
 chart.update();
-
+updateTabelDatasetHistoris();
+updateTabelHasilPrediksi();
 updateTabelPerhitungan(); // Perbarui tabel
 updateRumusRegresi(m, b); // Perbarui rumus regresi
 
@@ -291,6 +321,8 @@ document.getElementById('tambahData').addEventListener('click', () => {
             });
 
             chart.update();
+            updateTabelDatasetHistoris();
+            updateTabelHasilPrediksi();
             updateTabelPerhitungan(); // Perbarui tabel
             updateRumusRegresi(m, b); // Perbarui rumus regresi
         } else {
